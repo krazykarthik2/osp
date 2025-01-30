@@ -1,0 +1,6 @@
+megs: 32
+romimage: file="C:/Program Files/Bochs-2.8/BIOS-bochs-latest"
+vgaromimage: file="C:/Program Files/Bochs-2.8/VGABIOS-lgpl-latest"
+floppya: 1_44=floppy.img, status=inserted
+boot: a
+log: bochslog.txt
