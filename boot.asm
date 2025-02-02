@@ -16,11 +16,6 @@ start:
     int 0x13         ; Call BIOS disk interrupt
     jc disk_error    ; If error, print error message
     
-    mov ah,0x0e
-    mov al,"$"
-    mov bh,0
-    int 0x10
-
     mov si, jumping
     call print_string
 
