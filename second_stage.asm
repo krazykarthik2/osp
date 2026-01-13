@@ -1,39 +1,30 @@
-BITS 16
-;;;;;;;;;;;;constants up
-;print just ? using direct addressing
-; ORG 0x0000
+[BITS 16]
+[ORG 0x7e00]
 
-; section .text
-; global _start
-; _start:
-;     call print_char
-;     mov eax, 1            ; System call number for sys_exit
-;     xor ebx, ebx          ; Return code 0
-;     int 0x80              ; Call kernel
-; print_char:   
-;     mov ah, 0x0E
-;     mov al, 's'
-;     int 0x10
-;     ret
+start:
+    cli
+    xor ax, ax
+    mov ss, ax    
+    mov ds, ax
+    mov es, ax
+    sti
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;up:print ? direct addressing
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;down:print Hello, World! using memory pointers
+    mov si, hello_msg
+    call print_string
 
-[ORG 0x7E00]   ; Second stage starts at 0x7E00 (512 bytes after bootloader)
+hang:
+    hlt
+    jmp hang
 
+print_string:
+    mov ah, 0x0E
+.next:
+    lodsb
+    test al, al
+    jz .done
+    int 0x10
+    jmp .next
+.done:
+    ret
 
-section .text
-global _start
-_start:
-	mov	edx, len_msg   ;message length
-	mov	ecx, hello_msg    ;message to write
-	mov	ebx, 1	    ;file descriptor (stdout)
-	mov	eax, 4	    ;system call number (sys_write)
-	int	0x80        ;call kernel
-    mov eax, 1            ; System call number for sys_exit
-    xor ebx, ebx          ; Return code 0
-    int 0x80              ; Call kernel
-hello_msg db "Hello, World!", 0  ; Null-terminated string
-len_msg equ $ - hello_msg        ; Length of the message
-
-times 2020 - ($ - $$) db 0  ; Fill the rest of the sector with zeros
+hello_msg db "Hello from Stage 2!", 0x0D, 0x0A, 0

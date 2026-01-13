@@ -1,0 +1,17 @@
+# Binutils source and build
+cross_compiler/binutils-2.41/
+cross_compiler/build-binutils/
+# GCC source and build
+cross_compiler/gcc-13.2.0/
+cross_compiler/build-gcc/
+
+# Object files
+/objs/
+
+# Editor and OS files
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+

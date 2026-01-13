@@ -2,31 +2,27 @@
 [ORG 0x7C00]  ; BIOS loads us here
 
 start:
+    mov ax, cs
+    mov ds, ax
 
     mov si, msg
     call print_string
 
-    mov bx, 0x1000  
-    mov es, bx
+    mov ax, 0x07C0
+    mov es, ax       ; load to 0x7E00 (0x07C0:0x0200)
+    mov bx, 0x0200
     mov ah, 0x02     ; BIOS disk read function
-    mov al, 1        ; Read 1 sectors
+    mov al, 1        ; Read 1 sector
     mov ch, 0        ; Cylinder 0
     mov dh, 0        ; Head 0
-    mov cl,2      ; Start at sector 2
+    mov cl, 2        ; Start at sector 2
     int 0x13         ; Call BIOS disk interrupt
     jc disk_error    ; If error, print error message
     
     mov si, jumping
     call print_string
 
-    jmp 0x1000:0x0000; Jump to second-stage bootloader;
-
-    mov si, success_msg
-    call print_string
-    
-    mov eax, 1            ; System call number for sys_exit
-    xor ebx, ebx          ; Return code 0
-    int 0x80              ; Call kernel
+    jmp 0x07C0:0x0200 ; Jump to second-stage bootloader
 
 
 
@@ -72,11 +68,3 @@ BOTHNOTEQUAL db "Both are not equal", 0x0D, 0x0A, 0
 
 times 510 - ($ - $$) db 0
 dw 0xAA55  ; Boot signature
-
-section .data
-
-times__ dw 0
-
-hex_buffer db "00000000", 10, 0  ; Pre-fill with 8 zeroes + newline
-section .bss
-var         resb 1           ; Memory for 'var' at 0x200
