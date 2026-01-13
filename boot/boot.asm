@@ -25,7 +25,6 @@ start:
     jmp 0x07C0:0x0200 ; Jump to second-stage bootloader
 
 
-
 not_equal:
     mov si, BOTHNOTEQUAL
     call print_string
@@ -35,7 +34,6 @@ disk_error:
     mov si, err_msg
     call print_string
     hlt
-
 
 
 print_char:

@@ -27,6 +27,8 @@ This document lists the intended modules for a sample operating system. Use this
 - Early initialization
 - Zeroing BSS
 - Panic & Debug
+
+Build note: A small example kernel is available under `kernel/` and can be built with `build_kernel.bat` which compiles `kernel/kernel.c` and `kernel/kernel_entry.asm`, then links using `linker.ld` to produce `build/kernel.bin`.
   - Panic handler
   - Assertion system
   - Kernel logging

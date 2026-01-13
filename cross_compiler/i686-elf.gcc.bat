@@ -1,0 +1,1 @@
+"C:\msys64\mingw64\cross\bin\i686-elf-gcc.exe" %*
