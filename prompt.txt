@@ -1,0 +1,309 @@
+--- C:\Users\karthikkrazy\os-project\include\kernel.h ---
+#ifndef KERNEL_H
+#define KERNEL_H
+
+// Basic types to make life easier
+typedef unsigned char  uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int   uint32_t;
+
+void kernel_main(void);
+
+#endif
+
+--- C:\Users\karthikkrazy\os-project\include\next.h ---
+#ifndef NEXT_H
+#define NEXT_H
+
+void next_stage_main(void);
+
+#endif
+
+--- C:\Users\karthikkrazy\os-project\kernel\kernel.c ---
+extern void next(void);
+extern void gdt_install();
+extern void idt_install();
+
+void clrscr_ext(unsigned char color) {
+    volatile unsigned short* vga = (volatile unsigned short*)0xB8000;
+    // Shift color to high byte and add space character
+    unsigned short field = (color << 8) | 0x20; 
+
+    for (int i = 0; i < 80 * 25; i++) {
+        vga[i] = field;
+    }
+}
+
+// Usage: clrscr_ext(0x4F); // Clear screen to White on Red
+void kernel_main(void) {
+    gdt_install();
+    idt_install();
+    clrscr_ext(0xF0); // Clear screen to Black on White
+    // delay for 100 milliseconds
+    for (volatile int i = 0; i < 1000000*100; i++) {
+        __asm__ __volatile__("nop");
+    }
+    clrscr_ext(0x0F); // Clear screen to White on Black
+    volatile char* vga = (volatile char*)0xB8000;
+
+    // By declaring it this way, the characters are pushed onto the 
+    // stack as immediate values, avoiding the .rodata section issue.
+    char msg[] = "C programming in Kernel!";
+    
+    int pos = 0; // Starting at index 8 (the 5th character cell)
+
+    for (int i = 0; msg[i] != 0; i++) {
+        vga[pos++] = msg[i];   // Write Character
+        vga[pos++] = 0x0F;     // Write Attribute (White on Black)
+    }
+
+    // Clear screen to Black on White
+    // delay for 100 milliseconds
+    for (volatile int i = 0; i < 1000000*100; i++) {
+        __asm__ __volatile__("nop");
+    }
+    next();
+    for (;;)
+        __asm__ __volatile__("hlt");
+}
+
+--- C:\Users\karthikkrazy\os-project\kernel\kernel_entry.asm ---
+[BITS 32]
+section .text
+global kernel_entry
+extern kernel_main
+
+kernel_entry:
+    cli
+
+    mov byte [0xB8004], 'K'
+    mov byte [0xB8005], 0x0F
+
+    call kernel_main
+
+.hang:
+    cli
+    hlt
+    jmp .hang
+
+--- C:\Users\karthikkrazy\os-project\kernel\next.c ---
+// Usage: clrscr_ext(0x4F); // Clear screen to White on Red
+void next(void) {
+    volatile char* vga = (volatile char*)0xB8000;
+
+    // By declaring it this way, the characters are pushed onto the 
+    // stack as immediate values, avoiding the .rodata section issue.
+    char msg[] = "Next in line::";
+    
+    int pos = 0; // Starting at index 8 (the 5th character cell)
+
+    for (int i = 0; msg[i] != 0; i++) {
+        vga[pos++] = msg[i];   // Write Character
+        vga[pos++] = 0x0F;     // Write Attribute (White on Black)
+    }
+
+    for (;;)
+        __asm__ __volatile__("hlt");
+}
+
+--- C:\Users\karthikkrazy\os-project\kernel\trampoline.asm ---
+[BITS 16]
+section .trampoline
+global trampoline_start
+
+trampoline_start:
+    ; --- Real-mode proof ---
+    mov ax, 0xB800
+    mov es, ax
+    mov byte [es:0], 'T'
+    mov byte [es:1], 0x2F
+
+    cli
+    cld
+
+    ; 1. Mask the PIC to prevent hardware interrupts from firing
+    mov al, 0xFF
+    out 0x21, al
+    out 0xA1, al
+
+    ; 2. Calculate absolute physical address of this code
+    ; This ensures GDT/IDT work regardless of where boot.asm loaded us
+    xor eax, eax
+    mov ax, cs
+    shl eax, 4              ; EAX = Physical address of start of segment
+
+    ; 3. Setup GDTR (Physical Address)
+    mov ebx, eax
+    add ebx, gdt            ; EBX = Physical address of GDT
+    mov [gdtr + 2], ebx
+    mov word [gdtr], gdt_end - gdt - 1
+    lgdt [gdtr]
+
+    ; 4. Setup IDTR (Physical Address)
+    mov ebx, eax
+    add ebx, idt            ; EBX = Physical address of IDT
+    mov [idtr + 2], ebx
+    mov word [idtr], 8*1 - 1
+    lidt [idtr]
+
+    ; 5. Enter Protected Mode
+    mov eax, cr0
+    or eax, 1
+    mov cr0, eax
+
+    ; 6. 32-bit FAR jump
+    ; We must calculate the absolute address of pm_entry for the jump
+    ; Using a manual encoded far jump to be safe with relocations
+    db 0x66, 0xEA           ; Far jump opcode
+
+pm_phys_addr:
+    dd 0                    ; Will be filled below
+    dw 0x08                 ; Code Selector
+
+; Fixup the jump address dynamically before jumping
+    mov ebx, cs
+    shl ebx, 4
+    add ebx, pm_entry
+    mov [pm_phys_addr], ebx
+
+    ; Perform the jump (we actually just need to point to it)
+    ; Since the above is a 'db' block, we just execute into it or 
+    ; use a register indirect jump. Here is the cleaner way:
+    push 0x08               ; Selector
+    push ebx                ; Physical offset of pm_entry
+    retf                    ; 32-bit far "jump" via return
+
+[BITS 32]
+pm_entry:
+    ; Load data segments
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+    mov esp, 0x90000
+
+    ; --- Protected-mode proof ---
+    mov byte [0xB8002], 'P'
+    mov byte [0xB8003], 0x4F
+
+    jmp $
+
+[BITS 32]
+isr_stub:
+    iretd
+
+[BITS 16]
+align 8
+gdt:
+    dq 0x0000000000000000
+    dq 0x00CF9A000000FFFF   ; Code 0x08
+    dq 0x00CF92000000FFFF   ; Data 0x10
+gdt_end:
+
+gdtr:
+    dw 0
+    dd 0
+
+align 8
+idt:
+    ; Single entry for Vector 0
+    dw 0 ; (Calculated at runtime usually, but we'll leave it blank for now)
+    dw 0x08
+    db 0
+    db 0x8E
+    dw 0
+
+idtr:
+    dw 0
+    dd 0
+    
+
+--- C:\Users\karthikkrazy\os-project\kernel\arch\i386\gdt.c ---
+#include "../../../include/kernel.h"
+
+struct gdt_entry {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t  base_middle;
+    uint8_t  access;
+    uint8_t  granularity;
+    uint8_t  base_high;
+} __attribute__((packed));
+
+struct gdt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+struct gdt_entry gdt[3];
+struct gdt_ptr gp;
+
+// This is in your gdt_flush.asm
+extern void gdt_flush(uint32_t);
+
+void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
+    gdt[num].base_low    = (base & 0xFFFF);
+    gdt[num].base_middle = (base >> 16) & 0xFF;
+    gdt[num].base_high   = (base >> 24) & 0xFF;
+    gdt[num].limit_low   = (limit & 0xFFFF);
+    gdt[num].granularity = ((limit >> 16) & 0x0F) | (gran & 0xF0);
+    gdt[num].access      = access;
+}
+extern void gdt_install();
+void gdt_install() {
+    gp.limit = (sizeof(struct gdt_entry) * 3) - 1;
+    gp.base  = (uint32_t)&gdt;
+
+    gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
+    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Code segment
+    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Data segment
+
+    gdt_flush((uint32_t)&gp);
+}
+
+--- C:\Users\karthikkrazy\os-project\kernel\arch\i386\interrupts.c ---
+#include "../../../include/kernel.h"
+
+struct idt_entry {
+    uint16_t base_lo;
+    uint16_t sel;        // Kernel segment selector
+    uint8_t  always0;    // Must be 0
+    uint8_t  flags;      // Flags
+    uint16_t base_hi;
+} __attribute__((packed));
+
+struct idt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+struct idt_entry idt[256];
+struct idt_ptr idtp;
+
+// This loads the IDT using the 'lidt' instruction (usually done in ASM)
+void idt_load() {
+    __asm__ __volatile__("lidt %0" : : "m"(idtp));
+}
+
+void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
+    idt[num].base_lo = base & 0xFFFF;
+    idt[num].base_hi = (base >> 16) & 0xFFFF;
+    idt[num].sel     = sel;
+    idt[num].always0 = 0;
+    idt[num].flags   = flags;
+}
+extern void idt_install();
+void idt_install() {
+    idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
+    idtp.base  = (uint32_t)&idt;
+    
+    // Clear the IDT memory
+    for(int i = 0; i < 256; i++) {
+        idt_set_gate(i, 0, 0, 0);
+    }
+
+    idt_load();
+}
+

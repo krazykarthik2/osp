@@ -1,3 +1,7 @@
+extern void next(void);
+extern void gdt_install(void);
+extern void idt_install(void);
+
 void clrscr_ext(unsigned char color) {
     volatile unsigned short* vga = (volatile unsigned short*)0xB8000;
     // Shift color to high byte and add space character
@@ -29,6 +33,15 @@ void kernel_main(void) {
         vga[pos++] = 0x0F;     // Write Attribute (White on Black)
     }
 
+    // Clear screen to Black on White
+    // delay for 100 milliseconds
+    for (volatile int i = 0; i < 1000000*100; i++) {
+        __asm__ __volatile__("nop");
+    }
+    next();
+    
+    gdt_install();
+    idt_install();
     for (;;)
         __asm__ __volatile__("hlt");
 }

@@ -2,7 +2,8 @@ ENTRY(trampoline_start)
 
 SECTIONS
 {
-    . = 0;
+    /* Change this to the actual address where the file is loaded in RAM */
+    . = 0x00; 
 
     .trampoline : {
         *(.trampoline)

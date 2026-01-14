@@ -44,7 +44,7 @@ load_kernel:
     xor dh, dh        ; head 0
     mov cl, 3         ; sector 3
 
-    mov bp, 2       ; number of sectors to read
+    mov bp,3     ; number of sectors to read
 
 .read:
     mov dl, [boot_drive]
