@@ -4,4 +4,4 @@ vgaromimage: file="C:/Program Files/Bochs-2.8/VGABIOS-lgpl-latest"
 floppya: 1_44=outs/floppy.img, status=inserted
 boot: floppy
 log: bochs.log
-
+debug: action=report

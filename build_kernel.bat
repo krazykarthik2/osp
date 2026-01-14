@@ -1,14 +1,31 @@
-@echo OFF
-REM Build kernel: compile C and assembly then link to flat kernel image
+@echo ON
+if exist build\* del build\* /Q
 if not exist build mkdir build
 
-REM Compile C (uses cross_compiler\i686-elf.gcc.bat as a wrapper)
-call cross_compiler\i686-elf.gcc.bat -ffreestanding -m32 -c kernel\kernel.c -o build\kernel.o
+REM 1. Assemble trampoline (RAW BIN)
+"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f elf32 kernel\trampoline.asm -o build\trampoline.o
 
-REM Assemble entry
+REM 2. Assemble GDT Flush (ELF32)
+"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f elf32 kernel\gdt_flush.asm -o build\gdt_flush.o
+
+REM 3. Assemble kernel entry (ELF32)
 "%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f elf32 kernel\kernel_entry.asm -o build\kernel_entry.o
 
-REM Link kernel (requires i686-elf-ld in PATH)
-call cross_compiler/i686-elf-ld.bat -m elf_i386 -T linker.ld -o build\kernel.bin build\kernel_entry.o build\kernel.o
 
-echo Kernel build complete: build\kernel.bin
+REM 4. Compile C Files
+call cross_compiler\i686-elf.gcc.bat -ffreestanding -m32 -c -fno-pic -fno-pie -nostdlib -O0 kernel\kernel.c -o build\kernel.o
+call cross_compiler\i686-elf.gcc.bat -ffreestanding -m32 -c -fno-pic -fno-pie -nostdlib -O0 kernel\gdt.c -o build\gdt.o
+
+REM 5. Link kernel ELF (Include all object files)
+REM 5. Link kernel ELF
+call cross_compiler\i686-elf-ld.bat -m elf_i386 -T linker.ld ^
+  -o build\kernel.elf ^
+  build\trampoline.o ^
+  build\kernel_entry.o ^
+  build\kernel.o
+
+REM 6. Convert ELF → raw kernel binary
+call cross_compiler\i686-elf-objcopy.bat -O binary build\kernel.elf outs\kernel.bin
+
+
+echo Kernel build complete

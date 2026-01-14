@@ -7,14 +7,22 @@ del /s /f /q outs
 call build_kernel.bat
 @echo OFF
 @echo 333333333333333333333333333333333333
-fsutil file createnew "outs/floppy.img" 1474560 
+fsutil file createnew "outs/floppy.img" 1474560
 @echo 444444444444444444444444444444444444
 python write_floppy.py
 @echo 5555555555555555555555555555555555555
 @echo OFF
 if not exist "outs/floppy.img" goto error
 @echo ON
-"C:\Program Files\Bochs-2.8\bochs.exe" -f bochsrc.txt -q
+@REM "C:\Program Files\Bochs-2.8\bochsdbg.exe" -f bochsrc.txt
+@REM "C:\Program Files\Bochs-2.8\bochsdbg.exe" -f bochsrc.txt 
+"C:\msys64\ucrt64\bin\qemu-system-i386.exe" ^
+    -drive format=raw,file=outs/floppy.img ^
+    -boot a ^
+    -no-reboot ^
+    -no-shutdown  ^
+    -d int,cpu_reset
+
 @echo OFF
 goto end 
 :error
