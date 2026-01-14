@@ -7,9 +7,16 @@ with open("outs/floppy.img", "r+b") as f:
         f.write(boot.read())
     # Write second stage at sector 2
     with open("outs/second_stage.bin", "rb") as second_stage:
+        data = second_stage.read()
+        # second_stage.bin produced by NASM with `ORG 0x7E00` will be a large file
+        # containing zeros up to address 0x7E00; extract the 512-byte sector
+        start = SECOND_STAGE_START
+        sector = data[start:start+0x200]
+        if len(sector) < 0x200:
+            print(f'Warning: second_stage.bin too small ({len(data)} bytes). Writing available bytes.')
         print(f'seeking to {SECOND_STAGE_START - START_BOOT=}')
-        f.seek((SECOND_STAGE_START - START_BOOT))  # Second sector
-        f.write(second_stage.read())
+        f.seek((SECOND_STAGE_START - START_BOOT))  # Second sector offset in floppy
+        f.write(sector)
 
     # Write kernel image after second stage (starting at sector 3)
     # kernel.bin is a flat binary built by the linker and should be placed right after stage2

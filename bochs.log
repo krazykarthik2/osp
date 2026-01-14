@@ -44,7 +44,7 @@
 00000000000i[USBCTL] Pluggable USB devices
 00000000000i[USBCTL]   floppy mouse tablet keypad keyboard hub disk cdrom
 00000000000i[USBCTL]   printer
-00000000000i[MEM0  ] allocated memory at 000001F83E362040. after alignment, vector=000001F83E363000, block_size = 128K
+00000000000i[MEM0  ] allocated memory at 000001B0C5089040. after alignment, vector=000001B0C508A000, block_size = 128K
 00000000000i[MEM0  ] 32.00MB
 00000000000i[MEM0  ] mem block size = 0x00020000, blocks=256
 00000000000i[MEM0  ] rom at 0xfffe0000/131072 ('C:/Program Files/Bochs-2.8/BIOS-bochs-latest')
@@ -55,7 +55,7 @@
 00000000000i[DEV   ] PIIX3 PCI-to-ISA bridge present at device 1, function 0
 00000000000i[PLUGIN] init_dev of 'cmos' plugin device by virtual method
 00000000000i[CMOS  ] Using local time for initial clock
-00000000000i[CMOS  ] Setting initial clock to: Tue Jan 13 20:31:15   2026 tz=utc (time0=1768336275)
+00000000000i[CMOS  ] Setting initial clock to: Tue Jan 13 21:47:48   2026 tz=utc (time0=1768340868)
 00000000000i[PLUGIN] init_dev of 'dma' plugin device by virtual method
 00000000000i[DMA   ] channel 4 used by cascade
 00000000000i[PLUGIN] init_dev of 'pic' plugin device by virtual method
@@ -241,26 +241,25 @@
 00013898607e[DMA   ] read: unsupported address=000c
 00013899298e[DMA   ] read: unsupported address=000e
 00013928408e[KBD   ] unsupported io write to keyboard port 64, value = d
-00015866686i[WINGUI] &&&missing mouse state change
-01957636000p[WINGUI] >>PANIC<< POWER button turned off.
-01957636000i[CPU0  ] CPU is in real mode (active)
-01957636000i[CPU0  ] CS.mode = 16 bit
-01957636000i[CPU0  ] SS.mode = 16 bit
-01957636000i[CPU0  ] EFER   = 0x00000000
-01957636000i[CPU0  ] | EAX=00008630  EBX=00000200  ECX=00090000  EDX=00000089
-01957636000i[CPU0  ] | ESP=0000fcec  EBP=000040fb  ESI=000e7c7c  EDI=0000ff2c
-01957636000i[CPU0  ] | IOPL=0 id vip vif ac vm rf nt of df if tf sf zf af pf cf
-01957636000i[CPU0  ] | SEG sltr(index|ti|rpl)     base    limit G D
-01957636000i[CPU0  ] |  CS:07c0( 0004| 0|  0) 00007c00 0000ffff 0 0
-01957636000i[CPU0  ] |  DS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
-01957636000i[CPU0  ] |  SS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
-01957636000i[CPU0  ] |  ES:07c0( 0005| 0|  0) 00007c00 0000ffff 0 0
-01957636000i[CPU0  ] |  FS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
-01957636000i[CPU0  ] |  GS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
-01957636000i[CPU0  ] | EIP=000080ed (000080ed)
-01957636000i[CPU0  ] | CR0=0x60000010 CR2=0x00000000
-01957636000i[CPU0  ] | CR3=0x00000000 CR4=0x00000000
-01957636000i[CPU0  ] 0x00000000000080ed>> (invalid) : FF7D7C
-01957636000i[CMOS  ] Last time: 1768336764 tz=utc (Tue Jan 13 20:39:24   2026)
-01957636000i[      ] restoring default signal behavior
-01957636000i[SIM   ] quit_sim called with exit code 1
+00022752000p[WINGUI] >>PANIC<< POWER button turned off.
+00022752000i[CPU0  ] CPU is in real mode (active)
+00022752000i[CPU0  ] CS.mode = 16 bit
+00022752000i[CPU0  ] SS.mode = 16 bit
+00022752000i[CPU0  ] EFER   = 0x00000000
+00022752000i[CPU0  ] | EAX=00008630  EBX=00000200  ECX=00090000  EDX=00000089
+00022752000i[CPU0  ] | ESP=0000fcec  EBP=000040fb  ESI=000e7c7c  EDI=0000ff2c
+00022752000i[CPU0  ] | IOPL=0 id vip vif ac vm rf nt of df if tf sf zf af pf cf
+00022752000i[CPU0  ] | SEG sltr(index|ti|rpl)     base    limit G D
+00022752000i[CPU0  ] |  CS:07c0( 0004| 0|  0) 00007c00 0000ffff 0 0
+00022752000i[CPU0  ] |  DS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
+00022752000i[CPU0  ] |  SS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
+00022752000i[CPU0  ] |  ES:07c0( 0005| 0|  0) 00007c00 0000ffff 0 0
+00022752000i[CPU0  ] |  FS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
+00022752000i[CPU0  ] |  GS:0000( 0005| 0|  0) 00000000 0000ffff 0 0
+00022752000i[CPU0  ] | EIP=000080ed (000080ed)
+00022752000i[CPU0  ] | CR0=0x60000010 CR2=0x00000000
+00022752000i[CPU0  ] | CR3=0x00000000 CR4=0x00000000
+00022752000i[CPU0  ] 0x00000000000080ed>> (invalid) : FF7D7C
+00022752000i[CMOS  ] Last time: 1768340873 tz=utc (Tue Jan 13 21:47:53   2026)
+00022752000i[      ] restoring default signal behavior
+00022752000i[SIM   ] quit_sim called with exit code 1
