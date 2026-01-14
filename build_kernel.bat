@@ -12,6 +12,7 @@ set CFLAGS=-ffreestanding -m32 -c -fno-pic -fno-pie -nostdlib -O0 -I include
 
 call cross_compiler\i686-elf.gcc.bat %CFLAGS% kernel\kernel.c -o build\kernel.o
 call cross_compiler\i686-elf.gcc.bat %CFLAGS% kernel\next.c -o build\next.o
+call cross_compiler\i686-elf.gcc.bat %CFLAGS% kernel\pic.c -o build\pic.o
 call cross_compiler\i686-elf.gcc.bat %CFLAGS% kernel\arch\i386\gdt.c -o build\gdt.o
 call cross_compiler\i686-elf.gcc.bat %CFLAGS% kernel\arch\i386\interrupts.c -o build\interrupts.o
 
@@ -22,9 +23,10 @@ call cross_compiler\i686-elf-ld.bat -m elf_i386 -T linker.ld ^
   build\kernel_entry.o ^
   build\kernel.o ^
   build\next.o ^
+  build\interrupts.o ^
   build\gdt_flush.o ^
   build\gdt.o ^
-  build\interrupts.o 
+  build\pic.o 
 
 REM 6. Convert ELF → raw kernel binary
 call cross_compiler\i686-elf-objcopy.bat -O binary build\kernel.elf outs\kernel.bin

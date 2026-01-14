@@ -1,6 +1,7 @@
-extern void next(void);
 extern void gdt_install(void);
 extern void idt_install(void);
+#include "../include/next.h"
+#include "../include/pic.h"
 
 void clrscr_ext(unsigned char color) {
     volatile unsigned short* vga = (volatile unsigned short*)0xB8000;
@@ -42,6 +43,11 @@ void kernel_main(void) {
     
     gdt_install();
     idt_install();
+
+    pic_remap(0x20, 0x28);
+    pic_disable();
+    clrscr_ext(0x0F); // Clear screen to White on Black
+    next();
     for (;;)
         __asm__ __volatile__("hlt");
 }

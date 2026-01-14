@@ -1,10 +1,14 @@
 @echo OFF
 del /s /f /q outs
 @echo ON
-"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f bin boot\boot.asm -o outs/boot.bin
-"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f bin boot\second_stage.asm -o outs/second_stage.bin
+
 @echo Building kernel
 call build_kernel.bat
+
+python write_loading_second_stage.py
+"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f bin boot\boot.asm -o outs/boot.bin
+"%USERPROFILE%/AppData/Local/bin/NASM/nasm.exe" -f bin compilation_temp\second_stage.asm -o outs/second_stage.bin
+
 @echo OFF
 @echo 333333333333333333333333333333333333
 fsutil file createnew "outs/floppy.img" 1474560
