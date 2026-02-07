@@ -27,9 +27,7 @@ void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_
 }
 
 void gdt_install() {
-    uint32_t load_addr;
-    // Get physical offset of the kernel in RAM
-    __asm__ ("call 1f; 1: pop %0; sub $1b, %0" : "=r"(load_addr));
+    uint32_t load_addr = KERNEL_PHYS_BASE;
 
     // 1. Setup Gates at their physical RAM locations
     gdt_set_gate(0, 0, 0, 0, 0, load_addr);                // Null

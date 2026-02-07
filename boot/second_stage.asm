@@ -54,7 +54,18 @@ load_kernel:
     jc disk_error
 
     add bx, 512       ; REQUIRED if bp > 1
+
+    ; Advance CHS for 1.44MB floppy (18 sectors/track, 2 heads)
     inc cl
+    cmp cl, 19
+    jb .chs_ok
+    mov cl, 1
+    inc dh
+    cmp dh, 2
+    jb .chs_ok
+    mov dh, 0
+    inc ch
+.chs_ok:
     dec bp
     jnz .read
 

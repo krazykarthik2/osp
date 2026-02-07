@@ -1,6 +1,7 @@
 [BITS 16]
 section .trampoline
 global trampoline_start
+extern kernel_entry
 
 trampoline_start:
     ; --- Real-mode proof ---
@@ -11,58 +12,42 @@ trampoline_start:
 
     cli
     cld
+    xor ax, ax
+    mov ds, ax
 
     ; 1. Mask the PIC to prevent hardware interrupts from firing
     mov al, 0xFF
     out 0x21, al
     out 0xA1, al
 
-    ; 2. Calculate absolute physical address of this code
-    ; This ensures GDT/IDT work regardless of where boot.asm loaded us
-    xor eax, eax
-    mov ax, cs
-    shl eax, 4              ; EAX = Physical address of start of segment
+    ; 2. Setup GDTR (Absolute Physical Address)
+    mov ebx, gdt
+    a32 mov [gdtr + 2], ebx
+    a32 mov word [gdtr], gdt_end - gdt - 1
+    a32 lgdt [gdtr]
 
-    ; 3. Setup GDTR (Physical Address)
-    mov ebx, eax
-    add ebx, gdt            ; EBX = Physical address of GDT
-    mov [gdtr + 2], ebx
-    mov word [gdtr], gdt_end - gdt - 1
-    lgdt [gdtr]
+    ; 3. Setup IDTR (Absolute Physical Address)
+    mov ebx, idt
+    a32 mov [idtr + 2], ebx
+    a32 mov word [idtr], 8*1 - 1
+    a32 lidt [idtr]
 
-    ; 4. Setup IDTR (Physical Address)
-    mov ebx, eax
-    add ebx, idt            ; EBX = Physical address of IDT
-    mov [idtr + 2], ebx
-    mov word [idtr], 8*1 - 1
-    lidt [idtr]
-
-    ; 5. Enter Protected Mode
+    ; 4. Enter Protected Mode
     mov eax, cr0
     or eax, 1
     mov cr0, eax
 
-    ; 6. 32-bit FAR jump
-    ; We must calculate the absolute address of pm_entry for the jump
-    ; Using a manual encoded far jump to be safe with relocations
-    db 0x66, 0xEA           ; Far jump opcode
+    ; 5. FAR jump to flush prefetch queue (physical address, 32-bit offset)
+    mov ebx, pm_entry
+    a32 mov [pm_phys_addr], ebx
+    jmp short pm_jump
 
+    ; 32-bit far jump opcode (operand-size override + far jump)
+pm_jump:
+    db 0x66, 0xEA
 pm_phys_addr:
-    dd 0                    ; Will be filled below
-    dw 0x08                 ; Code Selector
-
-; Fixup the jump address dynamically before jumping
-    mov ebx, cs
-    shl ebx, 4
-    add ebx, pm_entry
-    mov [pm_phys_addr], ebx
-
-    ; Perform the jump (we actually just need to point to it)
-    ; Since the above is a 'db' block, we just execute into it or 
-    ; use a register indirect jump. Here is the cleaner way:
-    push 0x08               ; Selector
-    push ebx                ; Physical offset of pm_entry
-    retf                    ; 32-bit far "jump" via return
+    dd 0
+    dw 0x08
 
 [BITS 32]
 pm_entry:
@@ -75,15 +60,57 @@ pm_entry:
     mov ss, ax
     mov esp, 0x90000
 
+    ; Build a minimal 32-entry IDT (exceptions) to avoid triple fault
+    call .get_eip
+.get_eip:
+    pop ebx                        ; EBX = physical address of .get_eip
+    sub ebx, (.get_eip - pm_entry) ; EBX = physical address of pm_entry
+    mov esi, ebx
+    sub esi, pm_entry              ; ESI = load base (physical)
+
+    mov edi, esi
+    add edi, idt32                 ; EDI = physical address of idt32
+    mov edx, esi
+    add edx, isr_stub32            ; EDX = physical address of handler
+
+    mov ecx, 32
+.idt_loop:
+    mov eax, edx
+    mov word [edi], ax         ; offset low
+    mov word [edi+2], 0x08     ; selector
+    mov byte [edi+4], 0
+    mov byte [edi+5], 0x8E     ; present, ring0, 32-bit interrupt gate
+    shr eax, 16
+    mov word [edi+6], ax       ; offset high
+    add edi, 8
+    loop .idt_loop
+
+    mov dword [idtr32 + 2], edi
+    sub dword [idtr32 + 2], 32*8
+    mov word [idtr32], (32*8 - 1)
+    lidt [idtr32]
+
     ; --- Protected-mode proof ---
     mov byte [0xB8002], 'P'
     mov byte [0xB8003], 0x4F
 
-    jmp $
+    call kernel_entry
+
+.hang:
+    cli
+    hlt
+    jmp .hang
 
 [BITS 32]
 isr_stub:
     iretd
+
+[BITS 32]
+isr_stub32:
+    cli
+.halt:
+    hlt
+    jmp .halt
 
 [BITS 16]
 align 8
@@ -107,6 +134,15 @@ idt:
     dw 0
 
 idtr:
+    dw 0
+    dd 0
+
+[BITS 32]
+align 8
+idt32:
+    times 32 dq 0
+
+idtr32:
     dw 0
     dd 0
     

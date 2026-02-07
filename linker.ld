@@ -2,8 +2,8 @@ ENTRY(trampoline_start)
 
 SECTIONS
 {
-    /* Change this to the actual address where the file is loaded in RAM */
-    . = 0x00; 
+    /* Kernel is loaded at physical 0x10000 by the second-stage loader */
+    . = 0x10000;
 
     .trampoline : {
         *(.trampoline)

@@ -181,9 +181,20 @@ Build note: A small example kernel is available under `kernel/` and can be built
   - Command parsing
   - Process launching
 
+
 ---
 
-13. GUI System 🪟
+13. Filesystem (Optional / Later) 💾
+
+- VFS Layer
+- In-memory FS
+- Block Device Interface
+- SD Card Driver (Pi)
+
+---
+---
+
+14. GUI System 🪟
 
 - Window Manager (minimal)
   - Window creation
@@ -198,9 +209,10 @@ Build note: A small example kernel is available under `kernel/` and can be built
   - Software rendering
   - Redraw regions
 
+
 ---
 
-14. Networking Stack 🌐
+15. Networking Stack 🌐
 
 - Network Device Drivers
   - Ethernet
@@ -218,12 +230,3 @@ Build note: A small example kernel is available under `kernel/` and can be built
   - send
   - recv
   - bind
-
----
-
-15. Filesystem (Optional / Later) 💾
-
-- VFS Layer
-- In-memory FS
-- Block Device Interface
-- SD Card Driver (Pi)
