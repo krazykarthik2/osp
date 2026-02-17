@@ -84,6 +84,7 @@ long_mode_start:
 
     mov rsp, stack_top64
     xor rbp, rbp
+
     call kmain
 
 .dead:
