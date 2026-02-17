@@ -1,7 +1,8 @@
-#include "../include/shell.h"
-#include "../include/console.h"
-#include "../include/kbd.h"
-#include "../include/sched.h"
+#include "shell.h"
+#include "keyboard.h"
+#include "terminal.h"
+#include "mmu.h"
+#include "io.h"
 
 static int streq(const char* a, const char* b) {
     while (*a && *b) {
@@ -9,55 +10,78 @@ static int streq(const char* a, const char* b) {
         a++;
         b++;
     }
-    return *a == 0 && *b == 0;
+    return *a == *b;
 }
 
-static void read_line(char* buf, int cap) {
-    int n = 0;
-    for (;;) {
-        char c = kbd_getchar();
-        if (c == '\n') {
-            console_putc('\n');
-            buf[n] = 0;
-            return;
-        }
-        if (c == '\b') {
-            if (n > 0) {
-                n--;
-                console_putc('\b');
-            }
-            continue;
-        }
-        if (n < cap - 1) {
-            buf[n++] = c;
-            console_putc(c);
-        }
-        sched_yield();
+static int starts_with(const char* s, const char* prefix) {
+    while (*prefix) {
+        if (*s++ != *prefix++) return 0;
     }
+    return 1;
 }
 
-void shell_task(void) {
-    console_writeln("simple shell: type `help`");
-    for (;;) {
-        char line[64];
-        console_write("> ");
-        read_line(line, (int)sizeof(line));
+static void shell_help(void) {
+    terminal_writeln("Commands:");
+    terminal_writeln("  help         - show commands");
+    terminal_writeln("  clear        - clear screen");
+    terminal_writeln("  echo <text>  - print text");
+    terminal_writeln("  mmu          - paging status");
+    terminal_writeln("  cache        - cache status");
+    terminal_writeln("  reboot       - reboot machine");
+}
 
-        if (streq(line, "help")) {
-            console_writeln("commands: help, ps, yield, clear");
-        } else if (streq(line, "ps")) {
-            sched_dump_tasks();
-        } else if (streq(line, "yield")) {
-            sched_yield();
-        } else if (streq(line, "clear")) {
-            console_clear(0x0F);
-        } else if (line[0] == 0) {
-            // no-op
-        } else {
-            console_write("unknown: ");
-            console_writeln(line);
+static void reboot(void) {
+    outb(0x64, 0xFE);
+}
+
+void shell_run(void) {
+    char line[128];
+    terminal_writeln("Simple shell ready. Type 'help'.");
+
+    for (;;) {
+        terminal_write("osp> ");
+        size_t n = 0;
+
+        for (;;) {
+            char c = keyboard_read_char();
+            if (!c) continue;
+
+            if (c == '\n') {
+                terminal_putc('\n');
+                line[n] = 0;
+                break;
+            }
+
+            if (c == '\b') {
+                if (n > 0) {
+                    n--;
+                    terminal_putc('\b');
+                }
+                continue;
+            }
+
+            if (n < sizeof(line) - 1 && c >= 32 && c < 127) {
+                line[n++] = c;
+                terminal_putc(c);
+            }
         }
 
-        sched_yield();
+        if (line[0] == 0) continue;
+        if (streq(line, "help")) {
+            shell_help();
+        } else if (streq(line, "clear")) {
+            terminal_clear();
+        } else if (starts_with(line, "echo ")) {
+            terminal_writeln(line + 5);
+        } else if (streq(line, "mmu")) {
+            mmu_report();
+        } else if (streq(line, "cache")) {
+            cache_report();
+        } else if (streq(line, "reboot")) {
+            terminal_writeln("Rebooting...");
+            reboot();
+        } else {
+            terminal_writeln("Unknown command. Try: help");
+        }
     }
 }
