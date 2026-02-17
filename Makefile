@@ -5,25 +5,9 @@ OBJS := build/boot64.o build/kernel.o build/terminal.o build/serial.o build/keyb
 CFLAGS := -std=gnu11 -ffreestanding -fno-stack-protector -fno-pic -m64 -mno-red-zone -O2 -Wall -Wextra -Iinclude
 LDFLAGS := -nostdlib -z max-page-size=0x1000 -T linker64.ld
 
-.PHONY: all clean run test help check-tools
+.PHONY: all clean run test
 
-all: check-tools $(ISO)
-
-help:
-	@echo "Targets:"
-	@echo "  make all         # build bootable ISO"
-	@echo "  make run         # run in QEMU (headless serial)"
-	@echo "  make test        # boot smoke test"
-	@echo "  make clean       # remove build artifacts"
-
-check-tools:
-	@command -v gcc >/dev/null
-	@command -v ld >/dev/null
-	@command -v nasm >/dev/null
-	@command -v qemu-system-x86_64 >/dev/null
-	@command -v grub-mkrescue >/dev/null
-	@command -v xorriso >/dev/null
-
+all: $(ISO)
 
 build:
 	mkdir -p build iso/boot/grub
