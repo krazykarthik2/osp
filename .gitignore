@@ -8,6 +8,10 @@ cross_compiler/build-gcc/
 # Object files
 /objs/
 
+# Build artifacts
+/build/
+/iso/
+
 # Editor and OS files
 .vscode/
 *.swp
