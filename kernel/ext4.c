@@ -178,8 +178,10 @@ static void add_to_dir(uint32_t dir_ino, uint32_t child_ino, const char* name, u
 // --- Main API ---
 
 void ext4_mount(void) {
+    terminal_writeln("EXT4: Mounting...");
     // 1. Clear disk
     for (int i = 0; i < DISK_BLOCKS * BLK_SIZE; i++) disk[i] = 0;
+    terminal_writeln("EXT4: Disk cleared");
 
     // 2. Superblock (Block 1)
     ext4_super_block_t sb = {0};
@@ -193,6 +195,7 @@ void ext4_mount(void) {
     sb.s_blocks_per_group = 8192;
     sb.s_inodes_per_group = 128;
     set_sb(&sb);
+    terminal_writeln("EXT4: Superblock set");
 
     // 3. Group Descriptor (Block 2)
     ext4_group_desc_t gd = {0};
@@ -211,6 +214,7 @@ void ext4_mount(void) {
     bit_set(imap, 0); // reserved
     bit_set(imap, 1); // root inode 2 (index 1)
     disk_write(4, imap);
+    terminal_writeln("EXT4: Bitmaps set");
 
     // 5. Create Root Inode
     ext4_inode_t root = {0};
@@ -219,10 +223,13 @@ void ext4_mount(void) {
     root.i_links_count = 2;
     root.i_block[0] = alloc_block();
     set_inode(EXT4_ROOT_INODE, &root);
+    terminal_writeln("EXT4: Root inode created");
 
     // 6. Dot and DotDot for root
     add_to_dir(EXT4_ROOT_INODE, EXT4_ROOT_INODE, ".", 2);
+    terminal_writeln("EXT4: Dot added");
     add_to_dir(EXT4_ROOT_INODE, EXT4_ROOT_INODE, "..", 2);
+    terminal_writeln("EXT4: DotDot added");
 
     current_dir_inode = EXT4_ROOT_INODE;
     terminal_writeln("EXT4: Real-structured FS mounted (RAM disk)");
