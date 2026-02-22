@@ -24,7 +24,9 @@ $SUDO apt-get install -y \
   nasm \
   qemu-system-x86 \
   grub-pc-bin \
-  xorriso
+  grub-common \
+  xorriso \
+  mtools
 
 echo "Environment setup complete."
 echo "Next steps:"
