@@ -35,8 +35,9 @@ _start:
     mov ecx, 512
 .map_pd:
     mov ebx, eax
-    or ebx, 0x83
+    or ebx, 0x83 ; present | writable | huge
     mov [edi], ebx
+    mov dword [edi + 4], 0 ; Must zero upper 32 bits of 64-bit entry
     add edi, 8
     add eax, 0x200000
     loop .map_pd
@@ -44,10 +45,12 @@ _start:
     mov eax, page_table_l2
     or eax, 0x3
     mov [page_table_l3], eax
+    mov dword [page_table_l3 + 4], 0
 
     mov eax, page_table_l3
     or eax, 0x3
     mov [page_table_l4], eax
+    mov dword [page_table_l4 + 4], 0
 
     mov eax, cr4
     or eax, CR4_PAE
@@ -107,8 +110,9 @@ align 4096
 page_table_l4: resb 4096
 page_table_l3: resb 4096
 page_table_l2: resb 4096
-
-align 16
-stack_space: resb 16384
-stack_top32:
+stack_space:
+    resb 65536
 stack_top64:
+stack_space_32:
+    resb 4096
+stack_top32:

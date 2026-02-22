@@ -1,0 +1,10 @@
+qemu-system-x86_64 -cdrom build/osp.iso -serial stdio -display none -no-reboot
+OSP x86_64 Starting...
+MMU: 4-level paging enabled in early boot (2MiB pages)
+Cache: CR0.CD=0 and CR0.NW=0 -> CPU caches enabled
+Scheduler: initialized CPUs=2
+Managers ready
+K1
+EXT4: Real FS Mounted
+K2
+--- Verifying shell and EXT4 ---
