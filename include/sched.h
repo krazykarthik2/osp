@@ -28,6 +28,7 @@ uint32_t sched_get_tick_count(void);
 uint32_t sched_get_cpu_count(void);
 uint32_t sched_get_cpu_switches(uint32_t cpu);
 uint32_t sched_get_cpu_idle_ticks(uint32_t cpu);
+uint32_t sched_get_cpu_rq_size(uint32_t cpu);
 int sched_get_thread_info(int tid, sched_thread_info_t* out);
 int sched_max_threads(void);
 void sched_dump(void);

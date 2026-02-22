@@ -2,9 +2,9 @@
 
 ## 1. Boot & Architecture
 - [ ] GRUB-based bootloader (Multiboot2 compliant)
-- [ ] Enter x86_64 long mode
+- [x] Enter x86_64 long mode
 - [ ] Higher-half kernel mapping
-- [ ] GDT setup
+- [x] GDT setup
 - [ ] IDT setup
 - [ ] Interrupt handling framework
 - [ ] APIC initialization (Local + IO APIC)
@@ -15,7 +15,7 @@
 
 ## 2. Memory Management
 - [ ] Physical Memory Manager (bitmap or buddy allocator)
-- [ ] 4-level paging (PML4)
+- [x] 4-level paging (PML4)
 - [ ] Kernel/User virtual memory separation
 - [ ] Per-process address space
 - [ ] Demand paging (optional enhancement)
@@ -36,13 +36,13 @@
 ---
 
 ## 4. Process & Scheduling
-- [ ] Process control block (PCB)
-- [ ] Kernel threads
+- [x] Process control block (PCB)
+- [x] Kernel threads
 - [ ] User processes (Ring 3)
-- [ ] Context switching
-- [ ] Preemptive multitasking
-- [ ] SMP-aware scheduler
-- [ ] Per-core run queues
+- [x] Context switching
+- [x] Preemptive multitasking
+- [x] SMP-aware scheduler
+- [x] Per-core run queues
 - [ ] Background task support
 - [ ] Zombie process handling
 - [ ] Crash isolation (process-level fault handling)
@@ -57,19 +57,19 @@
 - [ ] exec() implementation
 - [ ] fork() implementation
 - [ ] Crash handler (segfault detection)
-- [ ] Kernel panic mechanism (with stack trace)
+- [x] Kernel panic mechanism (with stack trace)
 
 ---
 
 ## 6. Filesystem & Disk
-- [ ] Block device abstraction
+- [x] Block device abstraction
 - [ ] SATA/AHCI driver
-- [ ] VFS (Virtual File System layer)
-- [ ] Real disk-based filesystem (EXT2 or custom journaled FS)
+- [x] VFS (Virtual File System layer)
+- [x] Real disk-based filesystem (EXT2/EXT4 Subset)
 - [ ] Journaling support
 - [ ] Mount/unmount system
 - [ ] File permissions
-- [ ] Directory traversal
+- [x] Directory traversal
 - [ ] File descriptor abstraction
 
 ---
@@ -90,14 +90,14 @@
 ---
 
 ## 8. Terminal & Shell
-- [ ] Text-mode terminal driver (VGA text mode)
-- [ ] Keyboard driver (PS/2)
+- [x] Text-mode terminal driver (VGA text mode)
+- [x] Keyboard driver (PS/2)
 - [ ] Terminal emulator abstraction
-- [ ] Command parser
-- [ ] Built-in commands (ls, cd, ps, kill, clear)
+- [x] Command parser
+- [x] Built-in commands (ls, cd, tree, rm, ps, kill, clear)
 - [ ] Piping support (|)
 - [ ] I/O redirection (>, <)
-- [ ] Background execution (&)
+- [x] Background execution (&)
 - [ ] Script execution (.sh style)
 - [ ] Environment variables
 
@@ -116,7 +116,7 @@
 - [ ] Structured kernel panic screen
 - [ ] Stack trace printing
 - [ ] Per-process crash logging
-- [ ] Debug logging over serial
+- [x] Debug logging over serial
 - [ ] Watchdog timer (optional)
 
 ---
@@ -131,11 +131,11 @@
 ---
 
 ## 12. Build & Tooling
-- [ ] Cross compiler (x86_64-elf-gcc)
-- [ ] QEMU test environment
+- [x] Cross compiler (x86_64-elf-gcc)
+- [x] QEMU test environment
 - [ ] GDB debugging support
-- [ ] Makefile build system
-- [ ] Automated build script
+- [x] Makefile build system
+- [x] Automated build script
 
 ---
 

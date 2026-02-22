@@ -4,6 +4,7 @@
 #include "mmu.h"
 #include "sched.h"
 #include "proc.h"
+#include "ext4.h"
 #include "io.h"
 
 static void term_write_u32(uint32_t value) {
@@ -43,20 +44,34 @@ static char* skip_spaces(char* s) {
     return s;
 }
 
+static char token_storage[2048];
+static int token_storage_ptr = 0;
+
 static char* next_token(char** input) {
     char* s = skip_spaces(*input);
-    if (*s == 0) {
-        *input = s;
-        return 0;
-    }
-    char* start = s;
-    while (*s && *s != ' ') s++;
-    if (*s) {
-        *s = 0;
+    if (*s == 0) return 0;
+    
+    char* tok_start = &token_storage[token_storage_ptr];
+    
+    if (*s == '"') {
         s++;
+        while (*s && *s != '"') {
+            token_storage[token_storage_ptr++] = *s++;
+        }
+        if (*s == '"') s++;
+    } else if ((*s == '>' && *(s+1) == '>') || (*s == '&' && *(s+1) == '&') || (*s == '|' && *(s+1) == '|')) {
+        token_storage[token_storage_ptr++] = *s++;
+        token_storage[token_storage_ptr++] = *s++;
+    } else if (*s == '>' || *s == '|' || *s == '&' || *s == ';') {
+        token_storage[token_storage_ptr++] = *s++;
+    } else {
+        while (*s && *s != ' ' && *s != '>' && *s != '|' && *s != '&' && *s != ';') {
+            token_storage[token_storage_ptr++] = *s++;
+        }
     }
+    token_storage[token_storage_ptr++] = 0;
     *input = s;
-    return start;
+    return tok_start;
 }
 
 typedef int (*cmd_handler_t)(int argc, char** argv);
@@ -79,6 +94,13 @@ static int cmd_bg(int argc, char** argv);
 static int cmd_kill(int argc, char** argv);
 static int cmd_uname(int argc, char** argv);
 static int cmd_uptime(int argc, char** argv);
+static int cmd_ls(int argc, char** argv);
+static int cmd_cd(int argc, char** argv);
+static int cmd_mkdir(int argc, char** argv);
+static int cmd_touch(int argc, char** argv);
+static int cmd_cat(int argc, char** argv);
+static int cmd_rm(int argc, char** argv);
+static int cmd_tree(int argc, char** argv);
 static int cmd_reboot(int argc, char** argv);
 
 static const cli_cmd_t cli_commands[] = {
@@ -94,6 +116,13 @@ static const cli_cmd_t cli_commands[] = {
     { "kill", "kill <pid>                   - terminate process", cmd_kill },
     { "uname", "uname                        - system name", cmd_uname },
     { "uptime", "uptime                       - scheduler tick uptime", cmd_uptime },
+    { "ls", "ls [-r]                      - list files", cmd_ls },
+    { "tree", "tree                         - tree view of files", cmd_tree },
+    { "cd", "cd <dir>                     - change directory", cmd_cd },
+    { "mkdir", "mkdir <dir>                  - create directory", cmd_mkdir },
+    { "touch", "touch <file> <content>       - create file", cmd_touch },
+    { "cat", "cat <file>                   - display file content", cmd_cat },
+    { "rm", "rm <file>                    - remove file/directory", cmd_rm },
     { "reboot", "reboot                       - reboot machine", cmd_reboot },
 };
 
@@ -223,6 +252,67 @@ static int cmd_uptime(int argc, char** argv) {
     return 0;
 }
 
+static int cmd_ls(int argc, char** argv) {
+    if (argc >= 2 && streq(argv[1], "-r")) {
+        ext4_tree();
+        return 0;
+    }
+    ext4_ls();
+    return 0;
+}
+
+static int cmd_tree(int argc, char** argv) {
+    (void)argc; (void)argv;
+    ext4_tree();
+    return 0;
+}
+
+static int cmd_cd(int argc, char** argv) {
+    if (argc < 2) return 0;
+    if (ext4_cd(argv[1]) != 0) {
+        terminal_writeln("No such directory");
+    }
+    return 0;
+}
+
+static int cmd_mkdir(int argc, char** argv) {
+    if (argc < 2) {
+        terminal_writeln("Usage: mkdir <name>");
+        return -1;
+    }
+    ext4_mkdir(argv[1]);
+    return 0;
+}
+
+static int cmd_touch(int argc, char** argv) {
+    if (argc < 2) {
+        terminal_writeln("Usage: touch <name> [content]");
+        return -1;
+    }
+    const char* content = "";
+    if (argc >= 3) content = argv[2];
+    ext4_touch(argv[1], content);
+    return 0;
+}
+
+static int cmd_cat(int argc, char** argv) {
+    if (argc < 2) {
+        terminal_writeln("Usage: cat <name>");
+        return -1;
+    }
+    ext4_cat(argv[1]);
+    return 0;
+}
+
+static int cmd_rm(int argc, char** argv) {
+    if (argc < 2) {
+        terminal_writeln("Usage: rm <file>");
+        return -1;
+    }
+    ext4_rm(argv[1]);
+    return 0;
+}
+
 static int cmd_reboot(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -231,20 +321,126 @@ static int cmd_reboot(int argc, char** argv) {
     return 0;
 }
 
+static char shell_capture_buf[1024];
+static int shell_capture_idx = 0;
+static char shell_pipe_input[1024];
+
+static void shell_capture_putc(char c) {
+    if (shell_capture_idx < 1023) {
+        shell_capture_buf[shell_capture_idx++] = c;
+        shell_capture_buf[shell_capture_idx] = 0;
+    }
+    terminal_putc_direct(c);
+}
+
 static int dispatch_command(int argc, char** argv) {
     if (argc == 0) return 0;
-    for (int i = 0; i < cli_command_count(); i++) {
+    
+    // Check for redirection/operators in the arguments
+    char* redir_out = 0;
+    int append = 0;
+    int actual_argc = 0;
+    int i;
+    for (i = 0; i < argc; i++) {
+        if (streq(argv[i], ">") || streq(argv[i], ">>")) {
+            append = streq(argv[i], ">>");
+            if (i + 1 < argc) {
+                redir_out = argv[i+1];
+                break;
+            }
+        }
+        actual_argc++;
+    }
+
+    if (redir_out) {
+        shell_capture_idx = 0;
+        shell_capture_buf[0] = 0;
+        terminal_set_custom_putc(shell_capture_putc);
+    }
+
+    int ret = -1;
+    for (i = 0; i < cli_command_count(); i++) {
         if (streq(argv[0], cli_commands[i].name)) {
-            return cli_commands[i].handler(argc, argv);
+            ret = cli_commands[i].handler(actual_argc, argv);
+            break;
         }
     }
-    terminal_writeln("Unknown command. Type: help");
-    return -1;
+
+    if (redir_out) {
+        terminal_set_custom_putc(0);
+        ext4_write(redir_out, shell_capture_buf, append);
+    }
+
+    if (ret == -1 && argc > 0) {
+        terminal_writeln("Unknown command. Type: help");
+    }
+    return ret;
+}
+
+void shell_exec(const char* command_line) {
+    char line[1024];
+    int len = 0;
+    while (command_line[len] && len < 1023) {
+        line[len] = command_line[len];
+        len++;
+    }
+    line[len] = 0;
+
+    char* cursor = line;
+    char* argv[16];
+    int last_status = 0;
+    int skip_remaining = 0;
+    int piped_output_active = 0;
+    token_storage_ptr = 0;
+
+    while (*cursor && !skip_remaining) {
+        int argc = 0;
+        char* op = 0;
+        while (argc < 15) {
+            char* tok = next_token(&cursor);
+            if (!tok) break;
+            if (streq(tok, "&&") || streq(tok, "|") || streq(tok, "||") || streq(tok, ";")) {
+                op = tok;
+                break;
+            }
+            argv[argc++] = tok;
+        }
+        argv[argc] = 0;
+
+        if (argc > 0) {
+            if (piped_output_active) {
+                int p = 0; while(shell_capture_buf[p]) { shell_pipe_input[p] = shell_capture_buf[p]; p++; }
+                shell_pipe_input[p] = 0;
+                if (argc < 15) {
+                    argv[argc++] = shell_pipe_input;
+                    argv[argc] = 0;
+                }
+                piped_output_active = 0;
+            }
+
+            if (op && streq(op, "|")) {
+                shell_capture_idx = 0;
+                shell_capture_buf[0] = 0;
+                terminal_set_custom_putc(shell_capture_putc);
+                last_status = dispatch_command(argc, argv);
+                terminal_set_custom_putc(0);
+                piped_output_active = 1;
+            } else {
+                last_status = dispatch_command(argc, argv);
+            }
+        }
+        if (op) {
+            if (streq(op, "&&")) {
+                if (last_status != 0) skip_remaining = 1;
+            } else if (streq(op, "||")) {
+                if (last_status == 0) skip_remaining = 1;
+            }
+        }
+    }
 }
 
 void shell_run(void) {
-    char line[128];
-    char* argv[12];
+    char line[1024];
     terminal_writeln("OSP CLI ready. Type 'help'.");
 
     for (;;) {
@@ -257,13 +453,11 @@ void shell_run(void) {
                 sched_run_ticks(1);
                 continue;
             }
-
             if (c == '\n') {
                 terminal_putc('\n');
                 line[n] = 0;
                 break;
             }
-
             if (c == '\b') {
                 if (n > 0) {
                     n--;
@@ -271,23 +465,12 @@ void shell_run(void) {
                 }
                 continue;
             }
-
             if (n < sizeof(line) - 1 && c >= 32 && c < 127) {
                 line[n++] = c;
                 terminal_putc(c);
             }
         }
-
         if (line[0] == 0) continue;
-
-        char* cursor = line;
-        int argc = 0;
-        while (argc < (int)(sizeof(argv) / sizeof(argv[0]))) {
-            char* tok = next_token(&cursor);
-            if (!tok) break;
-            argv[argc++] = tok;
-        }
-
-        dispatch_command(argc, argv);
+        shell_exec(line);
     }
 }

@@ -155,7 +155,7 @@ void proc_top(void) {
     term_write_u32(cpus);
     terminal_putc('\n');
 
-    terminal_writeln("CPU   SWITCH  IDLE");
+    terminal_writeln("CPU   SWITCH  IDLE  RQ_SIZE");
     for (uint32_t cpu = 0; cpu < cpus; cpu++) {
         terminal_write(" ");
         term_write_u32(cpu);
@@ -163,6 +163,10 @@ void proc_top(void) {
         term_write_u32(sched_get_cpu_switches(cpu));
         terminal_write("     ");
         term_write_u32(sched_get_cpu_idle_ticks(cpu));
+        terminal_write("     ");
+        // Get run queue size (I need a new exported func in sched.h)
+        extern uint32_t sched_get_cpu_rq_size(uint32_t cpu);
+        term_write_u32(sched_get_cpu_rq_size(cpu));
         terminal_putc('\n');
     }
 

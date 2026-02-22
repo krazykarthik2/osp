@@ -1,6 +1,6 @@
 ISO := build/osp.iso
 KERNEL_ELF := build/kernel.elf
-OBJS := build/boot64.o build/kernel.o build/terminal.o build/serial.o build/keyboard.o build/shell.o build/mmu.o build/sched.o build/proc.o
+OBJS := build/boot64.o build/kernel.o build/terminal.o build/serial.o build/keyboard.o build/shell.o build/mmu.o build/sched.o build/proc.o build/ext4.o
 
 CFLAGS := -std=gnu11 -ffreestanding -fno-stack-protector -fno-pic -m64 -mno-red-zone -O2 -Wall -Wextra -Iinclude
 LDFLAGS := -nostdlib -z max-page-size=0x1000 -T linker64.ld

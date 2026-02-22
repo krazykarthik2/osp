@@ -13,14 +13,16 @@ cd "$SCRIPT_DIR"
 DO_SETUP=false
 DO_TEST=false
 HEADLESS=false
+TIMEOUT=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --setup) DO_SETUP=true; shift ;;
     --test) DO_TEST=true; shift ;;
     --headless) HEADLESS=true; shift ;;
-    -h|--help) echo "Usage: $0 [--setup] [--test] [--headless]"; exit 0 ;;
-    *) echo "Unknown arg: $1" >&2; echo "Usage: $0 [--setup] [--test] [--headless]"; exit 2 ;;
+    --timeout) TIMEOUT="$2"; shift 2 ;;
+    -h|--help) echo "Usage: $0 [--setup] [--test] [--headless] [--timeout <seconds>]"; exit 0 ;;
+    *) echo "Unknown arg: $1" >&2; echo "Usage: $0 [--setup] [--test] [--headless] [--timeout <seconds>]"; exit 2 ;;
   esac
 done
 
@@ -79,17 +81,31 @@ fi
 
 if $HEADLESS; then
   echo "Launching QEMU in terminal mode (-nographic)."
-  qemu-system-x86_64 \
+  CMD=(qemu-system-x86_64 \
     -cdrom build/osp.iso \
     -boot d \
     -nographic \
-    -no-reboot
+    -no-reboot)
+  
+  if [ "$TIMEOUT" -gt 0 ]; then
+     echo "Running with timeout: $TIMEOUT seconds"
+     timeout "${TIMEOUT}s" "${CMD[@]}" || true
+  else
+     "${CMD[@]}"
+  fi
 else
   echo "Launching QEMU in a separate window (GTK display)."
-  qemu-system-x86_64 \
+  CMD=(qemu-system-x86_64 \
     -cdrom build/osp.iso \
     -boot d \
     -display gtk \
     -serial stdio \
-    -no-reboot
+    -no-reboot)
+  
+  if [ "$TIMEOUT" -gt 0 ]; then
+     echo "Running with timeout: $TIMEOUT seconds"
+     timeout "${TIMEOUT}s" "${CMD[@]}" || true
+  else
+     "${CMD[@]}"
+  fi
 fi

@@ -5,6 +5,11 @@ static volatile uint16_t* const VGA = (uint16_t*)0xB8000;
 static size_t row;
 static size_t col;
 static uint8_t color;
+static void (*custom_putc_fn)(char) = 0;
+
+void terminal_set_custom_putc(void (*f)(char)) {
+    custom_putc_fn = f;
+}
 
 static void scroll(void) {
     for (size_t y = 1; y < 25; y++) {
@@ -34,7 +39,7 @@ void terminal_clear(void) {
     col = 0;
 }
 
-void terminal_putc(char c) {
+void terminal_putc_direct(char c) {
     if (c == '\n') {
         col = 0;
         row++;
@@ -58,6 +63,14 @@ void terminal_putc(char c) {
     if (row >= 25) {
         scroll();
     }
+}
+
+void terminal_putc(char c) {
+    if (custom_putc_fn) {
+        custom_putc_fn(c);
+        return;
+    }
+    terminal_putc_direct(c);
 }
 
 void terminal_write(const char* s) {

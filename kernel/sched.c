@@ -1,6 +1,10 @@
 #include "sched.h"
 #include "terminal.h"
 
+#define SCHED_MAX_CPUS 8
+#define SCHED_MAX_THREADS 32
+#define DEMO_THREADS 4
+
 enum {
     KTHREAD_UNUSED = 0,
     KTHREAD_READY = 1,
@@ -21,6 +25,9 @@ typedef struct {
     int current_tid;
     uint32_t switches;
     uint32_t idle_ticks;
+    int run_queue[SCHED_MAX_THREADS];
+    int run_queue_size;
+    int run_queue_cursor;
 } cpu_state_t;
 
 typedef struct {
@@ -29,10 +36,6 @@ typedef struct {
     uint32_t period;
     uint32_t counter;
 } demo_ctx_t;
-
-#define SCHED_MAX_CPUS 8
-#define SCHED_MAX_THREADS 32
-#define DEMO_THREADS 4
 
 static kthread_t threads[SCHED_MAX_THREADS];
 static cpu_state_t cpus[SCHED_MAX_CPUS];
@@ -60,19 +63,35 @@ static void term_write_u32(uint32_t value) {
     while (i-- > 0) terminal_putc(buf[i]);
 }
 
-static int affinity_allows(uint32_t affinity_mask, uint32_t cpu) {
-    if (affinity_mask == 0) return 1;
-    if (cpu >= 32) return 0;
-    return (affinity_mask & (1u << cpu)) != 0;
+static void cpu_add_to_queue(uint32_t cpu, int tid) {
+    if (cpu >= sched_cpu_count) return;
+    if (cpus[cpu].run_queue_size >= SCHED_MAX_THREADS) return;
+    cpus[cpu].run_queue[cpus[cpu].run_queue_size++] = tid;
 }
 
-static int pick_next_thread(uint32_t cpu, int start, uint8_t picked[]) {
-    for (int i = 0; i < SCHED_MAX_THREADS; i++) {
-        int tid = (start + 1 + i) % SCHED_MAX_THREADS;
-        if (picked[tid]) continue;
-        if (threads[tid].state != KTHREAD_READY) continue;
-        if (!affinity_allows(threads[tid].affinity_mask, cpu)) continue;
-        return tid;
+static void cpu_remove_from_queue(uint32_t cpu, int tid) {
+    if (cpu >= sched_cpu_count) return;
+    for (int i = 0; i < cpus[cpu].run_queue_size; i++) {
+        if (cpus[cpu].run_queue[i] == tid) {
+            for (int j = i; j < cpus[cpu].run_queue_size - 1; j++) {
+                cpus[cpu].run_queue[j] = cpus[cpu].run_queue[j + 1];
+            }
+            cpus[cpu].run_queue_size--;
+            return;
+        }
+    }
+}
+
+static int pick_next_thread(uint32_t cpu) {
+    if (cpus[cpu].run_queue_size == 0) return -1;
+    
+    // Pick from the per-core run queue using round-robin cursor
+    for (int i = 0; i < cpus[cpu].run_queue_size; i++) {
+        cpus[cpu].run_queue_cursor = (cpus[cpu].run_queue_cursor + 1) % cpus[cpu].run_queue_size;
+        int tid = cpus[cpu].run_queue[cpus[cpu].run_queue_cursor];
+        if (threads[tid].state == KTHREAD_READY) {
+            return tid;
+        }
     }
     return -1;
 }
@@ -117,6 +136,8 @@ void sched_init(uint32_t cpu_count) {
         cpus[i].current_tid = -1;
         cpus[i].switches = 0;
         cpus[i].idle_ticks = 0;
+        cpus[i].run_queue_size = 0;
+        cpus[i].run_queue_cursor = -1;
     }
 
     terminal_write("Scheduler: initialized CPUs=");
@@ -126,40 +147,66 @@ void sched_init(uint32_t cpu_count) {
 
 int sched_thread_create(const char* name, uint32_t affinity_mask, kthread_step_t step, void* ctx) {
     if (!step) return -1;
-    for (int tid = 0; tid < SCHED_MAX_THREADS; tid++) {
-        if (threads[tid].state == KTHREAD_UNUSED || threads[tid].state == KTHREAD_DONE) {
-            threads[tid].name = name;
-            threads[tid].step = step;
-            threads[tid].ctx = ctx;
-            threads[tid].affinity_mask = affinity_mask;
-            threads[tid].state = KTHREAD_READY;
-            threads[tid].run_count = 0;
-            return tid;
+    int tid = -1;
+    for (int itid = 0; itid < SCHED_MAX_THREADS; itid++) {
+        if (threads[itid].state == KTHREAD_UNUSED || threads[itid].state == KTHREAD_DONE) {
+            tid = itid;
+            break;
         }
     }
-    return -1;
+    if (tid < 0) return -1;
+
+    threads[tid].name = name;
+    threads[tid].step = step;
+    threads[tid].ctx = ctx;
+    threads[tid].affinity_mask = affinity_mask;
+    threads[tid].state = KTHREAD_READY;
+    threads[tid].run_count = 0;
+
+    // Load balancing: assign to the CPU with smallest run queue that satisfies affinity
+    uint32_t best_cpu = 0xFFFFFFFF;
+    int min_load = 1000000;
+
+    for (uint32_t c = 0; c < sched_cpu_count; c++) {
+        if (affinity_mask != 0 && !(affinity_mask & (1u << c))) continue;
+        if (cpus[c].run_queue_size < min_load) {
+            min_load = cpus[c].run_queue_size;
+            best_cpu = c;
+        }
+    }
+
+    if (best_cpu == 0xFFFFFFFF) {
+        // Fallback to first core if affinity mask is impossible
+        best_cpu = 0;
+    }
+
+    cpu_add_to_queue(best_cpu, tid);
+    return tid;
 }
 
 int sched_thread_kill(int tid) {
     if (tid < 0 || tid >= SCHED_MAX_THREADS) return -1;
     if (threads[tid].state == KTHREAD_UNUSED || threads[tid].state == KTHREAD_DONE) return -1;
     threads[tid].state = KTHREAD_DONE;
+    
+    // Remove from all CPU queues (clean cleanup)
+    for (uint32_t c = 0; c < sched_cpu_count; c++) {
+        cpu_remove_from_queue(c, tid);
+    }
     return 0;
 }
 
 void sched_run_ticks(uint32_t ticks) {
     for (uint32_t t = 0; t < ticks; t++) {
-        uint8_t picked[SCHED_MAX_THREADS] = {0};
         sched_tick++;
 
         for (uint32_t cpu = 0; cpu < sched_cpu_count; cpu++) {
-            int next = pick_next_thread(cpu, cpus[cpu].current_tid, picked);
+            int next = pick_next_thread(cpu);
             if (next < 0) {
                 cpus[cpu].idle_ticks++;
                 continue;
             }
 
-            picked[next] = 1;
             cpus[cpu].current_tid = next;
             cpus[cpu].switches++;
 
@@ -167,10 +214,16 @@ void sched_run_ticks(uint32_t ticks) {
             threads[next].run_count++;
 
             int done = threads[next].step(threads[next].ctx);
-            threads[next].state = done ? KTHREAD_DONE : KTHREAD_READY;
+            if (done) {
+                threads[next].state = KTHREAD_DONE;
+                cpu_remove_from_queue(cpu, next);
+            } else {
+                threads[next].state = KTHREAD_READY;
+            }
         }
     }
 }
+
 
 uint32_t sched_get_tick_count(void) {
     return sched_tick;
@@ -188,6 +241,11 @@ uint32_t sched_get_cpu_switches(uint32_t cpu) {
 uint32_t sched_get_cpu_idle_ticks(uint32_t cpu) {
     if (cpu >= sched_cpu_count) return 0;
     return cpus[cpu].idle_ticks;
+}
+
+uint32_t sched_get_cpu_rq_size(uint32_t cpu) {
+    if (cpu >= sched_cpu_count) return 0;
+    return cpus[cpu].run_queue_size;
 }
 
 int sched_get_thread_info(int tid, sched_thread_info_t* out) {
