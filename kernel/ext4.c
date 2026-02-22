@@ -23,6 +23,8 @@ static uint32_t alloc_b() {
     for(int i=12; i<1024; i++) {
         if(!(bmap[i/8] & (1<<(i%8)))) {
             bmap[i/8] |= (1<<(i%8));
+            serial_write("EXT4: allocated bid="); 
+            serial_putc((i/10)+'0'); serial_putc((i%10)+'0'); serial_write("\n");
             return i;
         }
     }
@@ -34,6 +36,8 @@ static uint32_t alloc_i() {
     for(int i=3; i<128; i++) {
         if(!(imap[i/8] & (1<<(i%8)))) {
             imap[i/8] |= (1<<(i%8));
+            serial_write("EXT4: allocated ino="); 
+            serial_putc((i+1)+'0'); serial_write("\n");
             return i+1;
         }
     }
@@ -77,6 +81,7 @@ static uint32_t find(uint32_t dino, const char* name) {
 }
 
 static void add_entry(uint32_t dino, uint32_t cino, const char* name, uint8_t type) {
+    serial_write("EXT4: add_entry debug\n");
     uint8_t* in = get_in_ptr(dino);
     uint32_t bid = ((uint32_t*)in)[10];
     uint8_t* blk = &disk[bid*1024];
@@ -126,21 +131,32 @@ void ext4_mkdir(const char* n) {
 }
 
 void ext4_write(const char* n, const char* data, int append) {
+    serial_write("EXT4: write file="); serial_write(n ? n : "NULL"); serial_write("\n");
     if(!n) return;
     uint32_t i = find(cur_dir_ino, n);
     if(!i) {
-        i = alloc_i(); uint8_t* in = get_in_ptr(i); bzero(in, 128);
-        ((uint32_t*)in)[0] = 0x81A4; ((uint32_t*)in)[10] = alloc_b();
-        add_entry(cur_dir_ino, i, n, 1);
+        serial_write("EXT4: allocating inode\n");
+        i = alloc_i(); 
+        serial_write("EXT4: clearing inode\n");
+        uint8_t* in = get_in_ptr(i); bzero(in, 128);
+        ((uint32_t*)in)[0] = 0x81A4; 
+        serial_write("EXT4: allocating data block\n");
+        ((uint32_t*)in)[10] = alloc_b();
+        serial_write("EXT4: adding dir entry\n");
+        add_entry(cur_dir_ino, i, (char*)n, 1);
+        serial_write("EXT4: add_entry finished\n");
     }
     uint8_t* in = get_in_ptr(i);
     uint32_t bid = ((uint32_t*)in)[10]; uint32_t size = ((uint32_t*)in)[1];
     int start = append ? size : 0;
+    serial_write("EXT4: writing data to bid="); 
+    serial_putc((bid/10)+'0'); serial_putc((bid%10)+'0'); serial_write("\n");
     int k=0; while(data[k] && k < 4000) { 
         if(bid*1024 + start + k < 1024*1024) disk[bid*1024 + start + k]=data[k]; 
         k++; 
     }
     ((uint32_t*)in)[1] = start + k;
+    serial_write("EXT4: write finished\n");
 }
 
 void ext4_ls(void) {

@@ -27,7 +27,14 @@ static const char shifted_scancode_map[128] = {
 char keyboard_read_char(void) {
     int sc_ser = serial_read_char();
     if (sc_ser >= 0) {
-        if (sc_ser == '\r') return '\n';
+        if(sc_ser < 32 || sc_ser > 126) {
+           serial_write("[S:"); 
+           serial_putc(((sc_ser/100)%10)+'0');
+           serial_putc(((sc_ser/10)%10)+'0');
+           serial_putc(((sc_ser)%10)+'0');
+           serial_write("]");
+        }
+        if (sc_ser == '\r' || sc_ser == '\n') return '\n';
         return (char)sc_ser;
     }
 

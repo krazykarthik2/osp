@@ -122,6 +122,12 @@ void shell_exec(const char* input) {
         if (storage_idx < 511) token_storage[storage_idx++] = 0;
         token_count++;
     }
+    serial_write("SHELL: cmd: ");
+    for(int i=0; i<token_count; i++) {
+        serial_write(tokens[i].text);
+        if(i+1<token_count) serial_write(" ");
+    }
+    serial_write("\n");
     dispatch_command(0, token_count);
 }
 
